@@ -137,8 +137,12 @@ else:
 #### change that later
 print(c)
 f = False
+n_images = 150
+
 ## start looping through samples: 
-while c < 150 and not f:
+for c in range(n_images):
+    if f:
+        break
     msk = []  # masks for each samples
 
     gp = []  # green points
