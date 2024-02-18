@@ -24,6 +24,8 @@ from PIL import Image
 from segment_anything import sam_model_registry, SamPredictor
 import matplotlib
 
+plt.rcParams['keymap.grid'].remove('g')
+plt.rcParams['keymap.home'].remove('r')
 
 def show_mask(mask, ax, random_color=False):
     if random_color:
