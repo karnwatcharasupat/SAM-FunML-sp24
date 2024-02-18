@@ -3,7 +3,7 @@ Original code: Mohammad Alotaibi <br>
 
 # Instructions: 
 1. Download SAM weights using :<br><br>
-`!wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth <br>` <br><br>
+`!wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth` <br><br>
 **or from this [direct-link](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)**
 and place it in your repository folder. <br>
 2. Figure out which dataset corresponds to your group, and download the appropiate samples and labels from [here](https://www.dropbox.com/scl/fo/zxmucpwwnd4w0428bj9r9/h?rlkey=q0ehe26z0kdyma0ngboa7pdu0&dl=0) and place them in your repository. Rename the files as samples.npy and labels.npy respectively.
