@@ -25,9 +25,6 @@ from segment_anything import sam_model_registry, SamPredictor
 import matplotlib
 
 
-# %%
-# names=os.listdir('C:/Users/Mohammed/Downloads/saltdome')
-# labels=os.listdir('C:/Users/Mohammed/Downloads/labels')
 def show_mask(mask, ax, random_color=False):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
@@ -56,7 +53,7 @@ def closetn(node, nodes):
 
 sys.path.append("..")
 
-sam_checkpoint = 'sam_vit_h_4b8939.pth'
+sam_checkpoint = 'weights/sam_vit_h_4b8939.pth'
 model_type = "vit_h"
 
 device = "cuda" if torch.cuda.is_available() else 'cpu'
@@ -66,8 +63,8 @@ sam.to(device=device)
 
 predictor = SamPredictor(sam)
 
-names = np.load("samples.npy", allow_pickle=True)
-labels = np.load("labels.npy", allow_pickle=True)
+names = np.load("data/samples.npy", allow_pickle=True)
+labels = np.load("data/labels.npy", allow_pickle=True)
 
 # %%
 
@@ -152,7 +149,7 @@ while c < 150 and not f:
     co = 0
     bs = 0
     score = []
-    round=[0,0]
+    round = [0, 0]
     stdx = []
     stdy = []
     ng = []
@@ -164,12 +161,10 @@ while c < 150 and not f:
     redx = []
     greeny = []
     redy = []
-    # label=plt.imread('C:/Users/Mohammed/Downloads/labels/'+labels[c])
+
     label = label == 1
 
-    # matplotlib.use('TkAgg')
     try:
-
         matplotlib.use('Qt5Agg')
     except:
         matplotlib.use('TkAgg')
@@ -320,6 +315,9 @@ while c < 150 and not f:
                     else:
                         s = intersection / union
                     # ws[chr(68)+str(c+2)]=str(bs) # start at cell D(c)
+
+                    print("IOU:", s)
+
                     show_points(input_point, input_label, ax[2])
                     msg = ""
 
@@ -327,20 +325,23 @@ while c < 150 and not f:
                         maxx = 0
                     else:
                         maxx = max(score[round[0]:])
-                        print("maxx",maxx)
+                        print("maxx", maxx)
                     score.append(s)
                     gp.append(np.multiply(green, 1))
 
                     rp.append(np.multiply(red, 1))
                     ng.append(len(greenx))
                     nr.append(len(redx))
-                    stdx.append(statistics.pstdev(np.concatenate((greenx, redx))))
-                    stdy.append(statistics.pstdev(np.concatenate((greeny, redy))))
+
+                    grx = np.concatenate([greenx, redx])
+                    gry = np.concatenate([greeny, redy])
+
+                    stdx.append(statistics.pstdev(grx.astype(int).tolist()))
+                    stdy.append(statistics.pstdev(gry.astype(int).tolist()))
                     print("up count", count)
                     if maxx >= s:
-                        print("inside",count)
+                        print("inside", count)
                         if count >= 10:
-
 
                             # msg="\nNo better score is achieved in the last 5 attempts. Start round 2 from scra\nThe best score ("+str(round(max(score),2))+") is saved"
                             lessfive += 1
@@ -352,7 +353,7 @@ while c < 150 and not f:
                         count = 1
                     if lessfive == 1:
                         maxx = 0
-                        count=1
+                        count = 1
                         round[0] = len(np.array(score))
                         msg = " (round 2) "
                     plt.title(f"Score: {(intersection / union):.3f}" + msg, fontsize=13)
@@ -380,8 +381,9 @@ while c < 150 and not f:
                         print("below count", count)
                         plt.title("No better score is achieved in the last 5 attempts. Start round 2 from scratch")
                     elif lessfive == 3:
-                        round[1]=len(score)-round[0]
-                        print("The window closed because you did not achieve a better score after 5 consecutive clicks in the 2nd round")
+                        round[1] = len(score) - round[0]
+                        print(
+                            "The window closed because you did not achieve a better score after 5 consecutive clicks in the 2nd round")
                         plt.close()
 
 
@@ -421,7 +423,6 @@ while c < 150 and not f:
                 print("below count", count)
 
 
-
         # Create a figure and display the image
 
         a = ax[0].plot()
@@ -439,31 +440,7 @@ while c < 150 and not f:
         cid = fig.canvas.mpl_connect('close_event', onclose)
         fig.show()  # this call does not block on my system
         fig.canvas.start_event_loop()  # block here until window closed
-        # After closing the image window, you can access the green and red pixel coordinate lists
 
-        # To select the truck, choose a point on it. Points are input to the model in (x,y) format and come with labels 1 (foreground point) or 0 (background point). Multiple points can be input; here we use only one. The chosen point will be shown as a star on the image.
-        # print("Hereeeeeeeee")
-
-        # ws['B'+str(c+2)]=str(len(green)) 
-        # ws['C'+str(c+2)]=str(len(red))
-        # ws['D'+str(c+2)]=str()
-        # input_point=np.concatenate((green,red))
-        # input_label=np.concatenate(([1]*len(green),[0]*len(red)))
-
-        # masks, scores, logits = predictor.predict(
-        #     point_coords=input_point,
-        #     point_labels=input_label,
-        #     multimask_output=True,
-        # )
-
-        # sleep(1)
-        # if np.max(score)<0.8:
-        #     print("your score should be more than 0.8, try again")
-        #     inc=""
-        #     co+=1
-        #     if co>=2:
-        #         inc=input("you tried more than 10 times\nYou can continue and save the best score ("+str(max(score))+")\nif you want to continue press y")
-        # else:
         inc = "y"
         print(inc)
 
@@ -492,11 +469,11 @@ while c < 150 and not f:
     np.save(os.path.join(name, "masks", str(c) + "_mask"), np.array(msk))
     np.save(os.path.join(name, "sorts", str(c) + "_sort"), indx)
     np.save(os.path.join(name, "scores", str(c) + "score"), score)
-    np.save(os.path.join(name,"eachround",str(c)+"_"),round)
+    np.save(os.path.join(name, "eachround", str(c) + "_"), round)
 
     c += 1
-    contin = input("do u want to continue? press y if you want to continue or anyting otherwise ")
-    if not contin == 'y':
+    contin = input("Do you want to stop? Press `n` if you do not want to continue, and anything otherwise ")
+    if contin == 'n':
         wb.save(os.path.join(name, name + '.xlsx'))
         f = True
         file = open(os.path.join(name, "time.txt"), 'w')
