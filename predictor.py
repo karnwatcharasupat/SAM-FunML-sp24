@@ -150,8 +150,12 @@ while c < 150 and not f:
     label = labels[c]  # GT for sample c
     rmv = False
     mask = 0
-    # image=np.array(((image+1)/2)*255,dtype='uint8') 
+    # image=np.array(((image+1)/2)*255,dtype='uint8')
+    print("Setting image")
+    t0 = time.time()
     predictor.set_image(image)
+    t1 = time.time()
+    print("Image set, time:", t1 - t0)
     inc = ""
     co = 0
     bs = 0
@@ -179,6 +183,7 @@ while c < 150 and not f:
         current_color = 'green'
         # get_ipython().run_line_magic('matplotlib', 'qt')
         fig, ax = plt.subplots(1, 3, figsize=(15, 7))
+
         if green and red:
             ax[0].plot(greenx, greeny, 'go', markersize=5)
             ax[1].plot(greenx, greeny, 'go', markersize=5)
