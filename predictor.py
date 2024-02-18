@@ -482,7 +482,6 @@ for c in range(n_images):
     np.save(os.path.join(name, "scores", str(c) + "score"), score)
     np.save(os.path.join(name, "eachround", str(c) + "_"), round)
 
-    c += 1
     contin = input("Do you want to stop? Press `n` if you do not want to continue, and anything otherwise ")
     if contin == 'n':
         wb.save(os.path.join(name, name + '.xlsx'))
