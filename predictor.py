@@ -68,6 +68,11 @@ predictor = SamPredictor(sam)
 names = np.load("data/samples.npy", allow_pickle=True)
 labels = np.load("data/labels.npy", allow_pickle=True)
 
+try:
+    matplotlib.use('Qt5Agg')
+except:
+    matplotlib.use('TkAgg')
+
 # %%
 
 first = input("Do you want to load previous work? -y -n\n")
@@ -166,10 +171,6 @@ while c < 150 and not f:
 
     label = label == 1
 
-    try:
-        matplotlib.use('Qt5Agg')
-    except:
-        matplotlib.use('TkAgg')
 
     while inc != "y":
         s = 0  # this is for the score
@@ -189,7 +190,6 @@ while c < 150 and not f:
         def onclose(event):
             fig.canvas.stop_event_loop()
             fig.canvas.mpl_disconnect(cid)
-
 
         def onclick(event):
             global count
