@@ -172,13 +172,16 @@ else:
 
 
 
-    threshold = input("Enter the threshold for the scores: ")
+    threshold = input("Enter the upper threshold for the scores: ")
     threshold = float(threshold)
 
-    print(f"Threshold: {threshold}")
-    print(f"Number of images with score below threshold: {np.sum(max_scores < threshold)}")
+    lthreshold = input("Enter the lower threshold for the scores: ")
+    lthreshold = float(lthreshold)
 
-    redo_indices = image_ids[max_scores < threshold]
+    print(f"Threshold: {lthreshold} - {threshold}")
+    print(f"Number of images with score within threshold: {np.sum((max_scores >= lthreshold) & (max_scores < threshold))}")
+
+    redo_indices = image_ids[(max_scores >= lthreshold) & (max_scores < threshold)]
     indices = np.arange(c, n_images)
 
     indices = np.concatenate([indices, redo_indices])
