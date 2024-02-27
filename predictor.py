@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Mon Feb 19 14:25:18 2024
+
+@author: Mohammed
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Wed Jan 10 01:47:37 2024
 
 @author: Mohammed
@@ -27,6 +34,18 @@ import matplotlib
 plt.rcParams['keymap.grid'].remove('g')
 plt.rcParams['keymap.home'].remove('r')
 
+MEDIUM_STAR_SIZE = 50 
+MEDIUM_GREEN_RED_DOT_SIZE = 5
+SMALL_STAR_SIZE = 10
+SMALL_GREEN_RED_DOT_SIZE = 2
+
+MEDIUM_DOT_SIZE_MODE = False
+SMALL_DOT_SIZE_MODE = True
+dot_size_toggle = SMALL_DOT_SIZE_MODE # small dot size by default
+GREEN_COLOR = '#00f700'
+RED_COLOR = '#ff1919'
+
+
 def show_mask(mask, ax, random_color=False):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
@@ -40,10 +59,17 @@ def show_mask(mask, ax, random_color=False):
 def show_points(coords, labels, ax, marker_size=50):
     pos_points = coords[labels == 1]
     neg_points = coords[labels == 0]
-    ax.scatter(pos_points[:, 0], pos_points[:, 1], color='green', marker='*', s=marker_size, edgecolor='white',
+    
+    if dot_size_toggle == MEDIUM_DOT_SIZE_MODE:
+        ax.scatter(pos_points[:, 0], pos_points[:, 1], color=GREEN_COLOR, marker='*', s=marker_size, edgecolor='white',
+                linewidth=1.25)
+        ax.scatter(neg_points[:, 0], neg_points[:, 1], color=RED_COLOR, marker='*', s=marker_size, edgecolor='white',
                linewidth=1.25)
-    ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', s=marker_size, edgecolor='white',
-               linewidth=1.25)
+    else:
+        ax.scatter(pos_points[:, 0], pos_points[:, 1], color=GREEN_COLOR, marker='*', s=marker_size, edgecolor='white',
+                linewidth=0.5)
+        ax.scatter(neg_points[:, 0], neg_points[:, 1], color=RED_COLOR, marker='*', s=marker_size, edgecolor='white',
+               linewidth=0.5)
 
 
 def closetn(node, nodes):
@@ -54,6 +80,11 @@ def closetn(node, nodes):
 
 
 sys.path.append("..")
+
+try:
+    matplotlib.use('Qt5Agg')
+except:
+    matplotlib.use('TkAgg')
 
 sam_checkpoint = 'weights/sam_vit_h_4b8939.pth'
 model_type = "vit_h"
@@ -67,11 +98,6 @@ predictor = SamPredictor(sam)
 
 names = np.load("data/samples.npy", allow_pickle=True)
 labels = np.load("data/labels.npy", allow_pickle=True)
-
-try:
-    matplotlib.use('Qt5Agg')
-except:
-    matplotlib.use('TkAgg')
 
 # %%
 
@@ -93,6 +119,7 @@ if first == 'n':
     #     ws[chr(73+i*5)+'1']='SD of green of '+str(i)
     #     ws[chr(74+i*5)+'1']='SD of red of '+str(i)
     #     ws[chr(75+i*5)+'1']='score of '+str(i)
+    serv=np.array([])
     for i in range(9):
         coun = 1
         for col in ws.iter_cols(min_row=1, max_row=1, max_col=12 + i * 5, min_col=7 + i * 5):
@@ -120,16 +147,15 @@ if first == 'n':
     c = 0
     tim = 0
     t = time.time()
-
 else:
     from openpyxl import load_workbook
-
+    
     name = input("what is your name?\n")
     wb = load_workbook(os.path.join(name, name + ".xlsx"))
     ws = wb.active
     c = len(os.listdir(os.path.join(name, "masks")))
     f = open(os.path.join(name, "time.txt"), 'r')
-
+    serv=np.load(os.path.join(name,"servey.npy")) if os.path.exists(os.path.join(name,"servey.npy")) else np.array([])
     tim = f.readline()
     t = time.time()
     f.close()
@@ -137,12 +163,8 @@ else:
 #### change that later
 print(c)
 f = False
-n_images = 150
-
 ## start looping through samples: 
-for c in range(n_images):
-    if f:
-        break
+while c < 400 and not f:
     msk = []  # masks for each samples
 
     gp = []  # green points
@@ -154,17 +176,13 @@ for c in range(n_images):
     label = labels[c]  # GT for sample c
     rmv = False
     mask = 0
-    # image=np.array(((image+1)/2)*255,dtype='uint8')
-    print("Setting image")
-    t0 = time.time()
+    # image=np.array(((image+1)/2)*255,dtype='uint8') 
     predictor.set_image(image)
-    t1 = time.time()
-    print("Image set, time:", t1 - t0)
     inc = ""
     co = 0
     bs = 0
     score = []
-    round = [0, 0]
+    round=[0,0]
     stdx = []
     stdy = []
     ng = []
@@ -172,22 +190,25 @@ for c in range(n_images):
     green = []
     red = []
     greenx = []
-
+    
     redx = []
     greeny = []
     redy = []
-
+    # label=plt.imread('C:/Users/Mohammed/Downloads/labels/'+labels[c])i9i
     label = label == 1
 
+    # matplotlib.use('TkAgg')
 
     while inc != "y":
         s = 0  # this is for the score
         count = 1  # to count the score max
         lessfive = 0
         current_color = 'green'
+        dot_size_toggle = SMALL_DOT_SIZE_MODE # default will be small dot, not medium
+        current_star_size = SMALL_STAR_SIZE
+        current_green_red_dot_size = SMALL_GREEN_RED_DOT_SIZE
         # get_ipython().run_line_magic('matplotlib', 'qt')
         fig, ax = plt.subplots(1, 3, figsize=(15, 7))
-
         if green and red:
             ax[0].plot(greenx, greeny, 'go', markersize=5)
             ax[1].plot(greenx, greeny, 'go', markersize=5)
@@ -199,6 +220,7 @@ for c in range(n_images):
         def onclose(event):
             fig.canvas.stop_event_loop()
             fig.canvas.mpl_disconnect(cid)
+
 
         def onclick(event):
             global count
@@ -227,8 +249,8 @@ for c in range(n_images):
                         greenx.append(x)
 
                         greeny.append(y)
-                        ax[0].plot(x, y, 'go', markersize=5)
-                        ax[1].plot(x, y, 'go', markersize=5)
+                        ax[0].plot(x, y, 'go', markersize=current_green_red_dot_size, color = GREEN_COLOR)
+                        ax[1].plot(x, y, 'go', markersize=current_green_red_dot_size, color = GREEN_COLOR)
                         plt.draw()
 
                     else:
@@ -236,8 +258,8 @@ for c in range(n_images):
                         redx.append(x)
 
                         redy.append(y)
-                        ax[0].plot(x, y, 'ro', markersize=5)
-                        ax[1].plot(x, y, 'ro', markersize=5)
+                        ax[0].plot(x, y, 'ro', markersize=current_green_red_dot_size, color = RED_COLOR)
+                        ax[1].plot(x, y, 'ro', markersize=current_green_red_dot_size, color = RED_COLOR)
                         plt.draw()
 
                 elif event.button is MouseButton.RIGHT:
@@ -326,24 +348,20 @@ for c in range(n_images):
                     else:
                         s = intersection / union
                     # ws[chr(68)+str(c+2)]=str(bs) # start at cell D(c)
-
-                    print("IOU:", s)
-
-                    show_points(input_point, input_label, ax[2])
+                    show_points(input_point, input_label, ax[2], marker_size = current_star_size)
                     msg = ""
 
                     if len(score[round[0]:]) == 0:
                         maxx = 0
                     else:
                         maxx = max(score[round[0]:])
-                        print("maxx", maxx)
+                        print("maxx",maxx)
                     score.append(s)
                     gp.append(np.multiply(green, 1))
 
                     rp.append(np.multiply(red, 1))
                     ng.append(len(greenx))
                     nr.append(len(redx))
-
                     grx = np.concatenate([greenx, redx])
                     gry = np.concatenate([greeny, redy])
 
@@ -351,8 +369,9 @@ for c in range(n_images):
                     stdy.append(statistics.pstdev(gry.astype(int).tolist()))
                     print("up count", count)
                     if maxx >= s:
-                        print("inside", count)
+                        print("inside",count)
                         if count >= 10:
+
 
                             # msg="\nNo better score is achieved in the last 5 attempts. Start round 2 from scra\nThe best score ("+str(round(max(score),2))+") is saved"
                             lessfive += 1
@@ -364,7 +383,7 @@ for c in range(n_images):
                         count = 1
                     if lessfive == 1:
                         maxx = 0
-                        count = 1
+                        count=1
                         round[0] = len(np.array(score))
                         msg = " (round 2) "
                     plt.title(f"Score: {(intersection / union):.3f}" + msg, fontsize=13)
@@ -392,9 +411,8 @@ for c in range(n_images):
                         print("below count", count)
                         plt.title("No better score is achieved in the last 5 attempts. Start round 2 from scratch")
                     elif lessfive == 3:
-                        round[1] = len(score) - round[0]
-                        print(
-                            "The window closed because you did not achieve a better score after 5 consecutive clicks in the 2nd round")
+                        round[1]=len(score)-round[0]
+                        print("The window closed because you did not achieve a better score after 5 consecutive clicks in the 2nd round")
                         plt.close()
 
 
@@ -408,6 +426,10 @@ for c in range(n_images):
             global redy
             global current_color
             global count
+            global current_star_size
+            global current_green_red_dot_size
+            global dot_size_toggle
+            
             if event.key == 'g':
                 current_color = 'green'
                 print("Switched to GREEN dot mode.")
@@ -432,7 +454,21 @@ for c in range(n_images):
                 show_mask(mask, ax[2])
                 count = 1
                 print("below count", count)
-
+            elif event.key == 'z':
+                dot_size_toggle = not dot_size_toggle
+                
+                if dot_size_toggle == SMALL_DOT_SIZE_MODE:
+                    # true => smaller dot size
+                    current_star_size = SMALL_STAR_SIZE
+                    current_green_red_dot_size = SMALL_GREEN_RED_DOT_SIZE
+                    print("Switched to SMALL DOT SIZE mode.")
+                else:
+                    # false => default dot size
+                    current_star_size = MEDIUM_STAR_SIZE
+                    current_green_red_dot_size = MEDIUM_GREEN_RED_DOT_SIZE
+                    print("Switched to MEDIUM DOT SIZE mode.")
+                
+                
 
         # Create a figure and display the image
 
@@ -451,7 +487,31 @@ for c in range(n_images):
         cid = fig.canvas.mpl_connect('close_event', onclose)
         fig.show()  # this call does not block on my system
         fig.canvas.start_event_loop()  # block here until window closed
+        # After closing the image window, you can access the green and red pixel coordinate lists
 
+        # To select the truck, choose a point on it. Points are input to the model in (x,y) format and come with labels 1 (foreground point) or 0 (background point). Multiple points can be input; here we use only one. The chosen point will be shown as a star on the image.
+        # print("Hereeeeeeeee")
+
+        # ws['B'+str(c+2)]=str(len(green)) 
+        # ws['C'+str(c+2)]=str(len(red))
+        # ws['D'+str(c+2)]=str()
+        # input_point=np.concatenate((green,red))
+        # input_label=np.concatenate(([1]*len(green),[0]*len(red)))
+
+        # masks, scores, logits = predictor.predict(
+        #     point_coords=input_point,
+        #     point_labels=input_label,
+        #     multimask_output=True,
+        # )
+
+        # sleep(1)
+        # if np.max(score)<0.8:
+        #     print("your score should be more than 0.8, try again")
+        #     inc=""
+        #     co+=1
+        #     if co>=2:
+        #         inc=input("you tried more than 10 times\nYou can continue and save the best score ("+str(max(score))+")\nif you want to continue press y")
+        # else:
         inc = "y"
         print(inc)
 
@@ -480,14 +540,25 @@ for c in range(n_images):
     np.save(os.path.join(name, "masks", str(c) + "_mask"), np.array(msk))
     np.save(os.path.join(name, "sorts", str(c) + "_sort"), indx)
     np.save(os.path.join(name, "scores", str(c) + "score"), score)
-    np.save(os.path.join(name, "eachround", str(c) + "_"), round)
+    np.save(os.path.join(name,"eachround",str(c)+"_"),round)
 
-    contin = input("Do you want to stop? Press `n` if you do not want to continue, and anything otherwise ")
-    if contin == 'n':
+    c += 1
+    ans=input("Do you think the ground truth mask was suboptimal? (i.e. are SAM's results qualitatively better) y or n\n") 
+    while ans!="y" and ans!="n":
+        ans=input("Do you think the ground truth mask was suboptimal? (i.e. are SAM's results qualitatively better) y or n\n") 
+    ans = 1 if ans=="y" else 0 
+    
+    serv=np.append(serv,ans)
+    contin = input("do u want to continue? press y if you want to continue or anyting otherwise ")
+    if not contin == 'y':
         wb.save(os.path.join(name, name + '.xlsx'))
         f = True
-        file = open(os.path.join(name, "time.txt"), 'w')
-        file.write(str(float(tim) + (time.time() - t)))
-        file.close()
+        # file = open(os.path.join(name, "time.txt"), 'w')
+        # file.write(str(float(tim) + (time.time() - t)))
+        # file.close()
     print("Sample:", c)
 wb.save(os.path.join(name, name + '.xlsx'))
+file = open(os.path.join(name, "time.txt"), 'w')
+file.write(str(float(tim) + (time.time() - t)))
+np.save(os.path.join(name,"servey.npy"),serv)
+file.close()
