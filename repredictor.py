@@ -134,7 +134,9 @@ else:
 #### change that later
 print(c)
 f = False
-n_images = 150
+names = np.load("data/samples.npy", allow_pickle=True)
+labels = np.load("data/labels.npy", allow_pickle=True)
+n_images = labels.shape[0]
 
 if first in ["y", "n"]:
     indices = range(c, n_images)
@@ -198,8 +200,6 @@ sam.to(device=device)
 
 predictor = SamPredictor(sam)
 
-names = np.load("data/samples.npy", allow_pickle=True)
-labels = np.load("data/labels.npy", allow_pickle=True)
 
 ## start looping through samples: 
 for c in indices:
@@ -217,7 +217,7 @@ for c in indices:
     rmv = False
     mask = 0
     # image=np.array(((image+1)/2)*255,dtype='uint8')
-    print("Setting image")
+    print(f"Setting image {c}")
     t0 = time.time()
     predictor.set_image(image)
     t1 = time.time()
@@ -552,5 +552,5 @@ for c in indices:
         file = open(os.path.join(name, "time.txt"), 'w')
         file.write(str(float(tim) + (time.time() - t)))
         file.close()
-    print("Sample:", c)
+    # print("Sample:", c)
 wb.save(os.path.join(name, name + '.xlsx'))
