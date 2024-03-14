@@ -549,8 +549,10 @@ while c < 400 and not f:
     ans = 1 if ans=="y" else 0 
     
     serv=np.append(serv,ans)
-    contin = input("do u want to continue? press y if you want to continue or anyting otherwise ")
-    if not contin == 'y':
+    contin = input(
+        "Do you want to stop? Press `n` if you do not want to continue, and anything otherwise "
+        )
+    if contin == 'n':
         wb.save(os.path.join(name, name + '.xlsx'))
         f = True
         # file = open(os.path.join(name, "time.txt"), 'w')
