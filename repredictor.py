@@ -23,6 +23,8 @@ import time
 from PIL import Image
 from segment_anything import sam_model_registry, SamPredictor
 import matplotlib
+import matplotlib.patches as patches
+
 
 plt.rcParams['keymap.grid'].remove('g')
 plt.rcParams['keymap.home'].remove('r')
@@ -45,7 +47,18 @@ def show_points(coords, labels, ax, marker_size=50):
                linewidth=1.25)
     ax.scatter(neg_points[:, 0], neg_points[:, 1], color='red', marker='*', s=marker_size, edgecolor='white',
                linewidth=1.25)
+    
+def show_box(box_points, ax):
+    x1, y1 = box_points[0],box_points[1]
+    x2, y2 = box_points[2],box_points[3]
 
+    width = abs(x2 - x1)
+    height = abs(y2 - y1)
+
+    rectangle = patches.Rectangle((x1, y1), width, height, alpha=0.5, facecolor='blue')
+
+    ax.add_patch(rectangle)
+ 
 
 def closetn(node, nodes):
     nodes = np.asarray(nodes)
@@ -239,6 +252,10 @@ for c in indices:
     greeny = []
     redy = []
 
+    box = []
+    box_x =[]
+    box_y =[]
+
     label = label == 1
 
     while inc != "y":
@@ -246,6 +263,7 @@ for c in indices:
         count = 1  # to count the score max
         lessfive = 0
         current_color = 'green'
+        current_shape = 'dot'
         # get_ipython().run_line_magic('matplotlib', 'qt')
         fig, ax = plt.subplots(1, 3, figsize=(15, 7))
 
@@ -256,11 +274,17 @@ for c in indices:
             ax[1].plot(redx, redy, 'ro', markersize=5)
             plt.draw()
 
+        if len(box_x)==2:
+            ax[0].plot(box_x[0], box_y[0], 'bo', markersize=5)
+            ax[1].plot(box_x[0], box_y[1], 'bo', markersize=5)
+          
+            plt.draw()
 
         def onclose(event):
             fig.canvas.stop_event_loop()
             fig.canvas.mpl_disconnect(cid)
 
+    
 
         def onclick(event):
             global count
@@ -270,6 +294,9 @@ for c in indices:
             global redx
             global greeny
             global redy
+            global box
+            global box_x
+            global box_y
             global label
             global mask
             global lessfive
@@ -283,24 +310,39 @@ for c in indices:
                 #     f=True
 
                 if event.button is MouseButton.LEFT:
-                    if current_color == 'green':
+                    if current_shape == 'dot':
+                        if current_color == 'green':
 
-                        green.append((x, y))
-                        greenx.append(x)
+                            green.append((x, y))
+                            greenx.append(x)
 
-                        greeny.append(y)
-                        ax[0].plot(x, y, 'go', markersize=5)
-                        ax[1].plot(x, y, 'go', markersize=5)
+                            greeny.append(y)
+                            ax[0].plot(x, y, 'go', markersize=5)
+                            ax[1].plot(x, y, 'go', markersize=5)
+                            plt.draw()
+
+
+                        elif current_color == 'red':
+                            red.append((x, y))
+                            redx.append(x)
+
+                            redy.append(y)
+                            ax[0].plot(x, y, 'ro', markersize=5)
+                            ax[1].plot(x, y, 'ro', markersize=5)
+                            plt.draw()
+
+                    elif current_shape =='box':
+                        box.append((x,y))
+                        box_x.append(x)
+
+                        box_y.append(y)
+                        ax[0].plot(x, y, 'bo', markersize=5)
+                        ax[1].plot(x, y, 'bo', markersize=5)
+                        print(box)
+                        print(len(box_x))
                         plt.draw()
 
-                    else:
-                        red.append((x, y))
-                        redx.append(x)
 
-                        redy.append(y)
-                        ax[0].plot(x, y, 'ro', markersize=5)
-                        ax[1].plot(x, y, 'ro', markersize=5)
-                        plt.draw()
 
                 elif event.button is MouseButton.RIGHT:
 
@@ -361,19 +403,26 @@ for c in indices:
                             del redy[indx]
                             plt.draw()
 
-                if green and red:
+                if (green and red) or len(box_x)==2:
                     global s
                     print("green:", green)
                     print("red:", red)
 
                     input_point = np.concatenate((green, red))
                     input_label = np.concatenate(([1] * len(green), [0] * len(red)))
-
-                    masks, scores, logits = predictor.predict(
+                    if current_shape=='dot':
+                        masks, scores, logits = predictor.predict(
                         point_coords=input_point,
                         point_labels=input_label,
                         multimask_output=True,
-                    )
+                        )
+                    elif current_shape=='box':
+                        box_points = np.array([box_x[0],box_y[0],box_x[1],box_y[1]])
+
+                        masks, scores, logits = predictor.predict(
+                        box=box_points,
+                        multimask_output=True,
+                        )
 
                     mask = masks[0]
 
@@ -390,27 +439,43 @@ for c in indices:
                     # ws[chr(68)+str(c+2)]=str(bs) # start at cell D(c)
 
                     print("IOU:", s)
-
-                    show_points(input_point, input_label, ax[2])
+                    if current_shape=='dot':
+                        show_points(input_point, input_label, ax[2])
+                    elif current_shape=='box':
+                        show_box(box_points, ax[2])
+                        green = []
+                        red = []
+                        greenx = []
+                        redx = []
+                        greeny = []
+                        redy = []
+                        box = []
+                        box_x =[]
+                        box_y = []
+                        for line in ax[0].lines:
+                            line.set_data([], [])
+                        for line in ax[1].lines:
+                            line.set_data([], [])
                     msg = ""
 
+                    
                     if len(score[round[0]:]) == 0:
                         maxx = 0
                     else:
                         maxx = max(score[round[0]:])
                         print("maxx", maxx)
                     score.append(s)
-                    gp.append(np.multiply(green, 1))
+                    if current_shape=='dot':
+                        gp.append(np.multiply(green, 1))
+                        rp.append(np.multiply(red, 1))
+                        ng.append(len(greenx))
+                        nr.append(len(redx))
 
-                    rp.append(np.multiply(red, 1))
-                    ng.append(len(greenx))
-                    nr.append(len(redx))
+                        grx = np.concatenate([greenx, redx])
+                        gry = np.concatenate([greeny, redy])
 
-                    grx = np.concatenate([greenx, redx])
-                    gry = np.concatenate([greeny, redy])
-
-                    stdx.append(statistics.pstdev(grx.astype(int).tolist()))
-                    stdy.append(statistics.pstdev(gry.astype(int).tolist()))
+                        stdx.append(statistics.pstdev(grx.astype(int).tolist()))
+                        stdy.append(statistics.pstdev(gry.astype(int).tolist()))
                     print("up count", count)
                     if maxx >= s:
                         print("inside", count)
@@ -461,14 +526,18 @@ for c in indices:
 
 
         # Create a function to toggle between green and red dots
-        def toggle_color(event):
+        def toggle(event):
             global green
             global red
             global greenx
             global redx
             global greeny
             global redy
+            global box
+            global box_x
+            global box_y
             global current_color
+            global current_shape
             global count
             if event.key == 'g':
                 current_color = 'green'
@@ -477,6 +546,15 @@ for c in indices:
             elif event.key == 'r':
                 current_color = 'red'
                 print("Switched to RED dot mode.")
+
+            elif event.key =='b':
+                current_shape = 'box'
+                print("Switched to box mode.")
+
+            elif event.key =='d':
+                current_shape = 'dot'
+                print("Switched to dot mode.")            
+
             elif event.key == ' ':
                 for line in ax[0].lines:
                     line.set_data([], [])
@@ -488,12 +566,16 @@ for c in indices:
                 redx = []
                 greeny = []
                 redy = []
+                box = []
+                box_x = []
+                box_y = []
                 plt.draw()
                 ax[2].clear()
                 ax[2].imshow(image)
                 show_mask(mask, ax[2])
                 count = 1
                 print("below count", count)
+
 
 
         # Create a figure and display the image
@@ -503,10 +585,11 @@ for c in indices:
         ax[0].imshow(image)
         ax[1].imshow(label)
         # Connect mouse click and keyboard key events
+
         fig.canvas.mpl_connect('button_press_event', onclick)
         # fig.canvas.start_event_loop(timeout=-5)
-        fig.canvas.mpl_connect('key_press_event', toggle_color)
-        fig.canvas.mpl_connect('key_press_event', toggle_color)
+        fig.canvas.mpl_connect('key_press_event', toggle)
+        fig.canvas.mpl_connect('key_press_event', toggle)
         # fig.canvas.start_event_loop(timeout=-5)
         # Display the plot
 
@@ -519,24 +602,25 @@ for c in indices:
 
     indx = np.argsort(-np.array(score))
     sscore = np.array(score)[indx]
-    sng = np.array(ng)[indx]
-    snr = np.array(nr)[indx]
-    sstdx = np.array(stdx)[indx]
-    sstdy = np.array(stdy)[indx]
-    for i in range(len(score)):
-        coun = 1
-        for col in ws.iter_cols(min_row=c + 2, max_row=c + 2, max_col=6 + i * 5, min_col=2 + i * 5):
-            if coun == 1:
-                ws[col[0].coordinate] = sng[i]
-            elif coun == 2:
-                ws[col[0].coordinate] = snr[i]
-            elif coun == 3:
-                ws[col[0].coordinate] = sstdx[i]
-            elif coun == 4:
-                ws[col[0].coordinate] = sstdy[i]
-            elif coun == 5:
-                ws[col[0].coordinate] = sscore[i]
-            coun += 1
+    if current_shape=='dot':
+        sng = np.array(ng)[indx]
+        snr = np.array(nr)[indx]
+        sstdx = np.array(stdx)[indx]
+        sstdy = np.array(stdy)[indx]
+        for i in range(len(score)):
+            coun = 1
+            for col in ws.iter_cols(min_row=c + 2, max_row=c + 2, max_col=6 + i * 5, min_col=2 + i * 5):
+                if coun == 1:
+                    ws[col[0].coordinate] = sng[i]
+                elif coun == 2:
+                    ws[col[0].coordinate] = snr[i]
+                elif coun == 3:
+                    ws[col[0].coordinate] = sstdx[i]
+                elif coun == 4:
+                    ws[col[0].coordinate] = sstdy[i]
+                elif coun == 5:
+                    ws[col[0].coordinate] = sscore[i]
+                coun += 1
     np.save(os.path.join(name, "points", str(c) + "_green"), np.array(gp, dtype=object))
     np.save(os.path.join(name, "points", str(c) + "_red"), np.array(rp, dtype=object))
     np.save(os.path.join(name, "masks", str(c) + "_mask"), np.array(msk))
