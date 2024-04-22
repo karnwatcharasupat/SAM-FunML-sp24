@@ -120,6 +120,7 @@ if first == 'n':
     if not os.path.exists(name):
         os.makedirs(name)
         os.makedirs(os.path.join(name, "masks"))
+        os.makedirs(os.path.join(name, "boxes"))
         os.makedirs(os.path.join(name, "points"))
         os.makedirs(os.path.join(name, "sorts"))
         os.makedirs(os.path.join(name, "eachround"))
@@ -222,6 +223,9 @@ for c in indices:
 
     gp = []  # green points
     rp = []  # red points
+
+    boxp = [] # prompting boxes
+
     image = names[c]  # samples c
     ws['A' + str(c + 2)] = str(c)  # samples name on excel
     if len(image.shape) == 2:
@@ -443,6 +447,8 @@ for c in indices:
                         show_points(input_point, input_label, ax[2])
                     elif current_shape=='box':
                         show_box(box_points, ax[2])
+                        # Sav box points
+                        boxp.append(np.multiply(box_points,1))
                         green = []
                         red = []
                         greenx = []
@@ -623,6 +629,7 @@ for c in indices:
                 coun += 1
     np.save(os.path.join(name, "points", str(c) + "_green"), np.array(gp, dtype=object))
     np.save(os.path.join(name, "points", str(c) + "_red"), np.array(rp, dtype=object))
+    np.save(os.path.join(name, "boxes", str(c) + "_box"), np.array(boxp, dtype=object))
     np.save(os.path.join(name, "masks", str(c) + "_mask"), np.array(msk))
     np.save(os.path.join(name, "sorts", str(c) + "_sort"), indx)
     np.save(os.path.join(name, "scores", str(c) + "score"), score)
