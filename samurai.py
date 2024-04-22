@@ -153,8 +153,8 @@ def load_student_data(predictor, samples, labels, student_path):
 
         ibb_iou = compute_iou(ibb_masks[0], gt)
 
-        recon_coords = np.concatenate([g, r])
-        recon_labels = np.concatenate([np.ones(g.shape[0]), np.zeros(r.shape[0])])
+        recon_coords = np.concatenate([g[:2], r[:1]])
+        recon_labels = np.concatenate([np.ones(g[:2].shape[0]), np.zeros(r[:1].shape[0])])
 
         recon_masks, _, _ = predictor.predict(
             point_coords=recon_coords,
