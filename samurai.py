@@ -52,7 +52,19 @@ def compute_iou(mask, gt):
 
     return iou
 
-def load_student_data(predictor, samples, labels, student_path):
+
+def compute_iou_from_convex_hull(gch: ConvexHull, gt: np.ndarray):
+
+    mask = np.zeros((*gt.shape, 1), dtype=np.uint8)
+
+    cv2.fillPoly(mask, [gch.points[gch.vertices].astype(np.int32)[None, ...]], 1)
+
+    mask = mask[..., 0]
+
+    return compute_iou(mask, gt)
+
+
+def load_student_data(predictor, samples, labels, student_path, run_sam=False):
 
     data = []
 
@@ -79,7 +91,9 @@ def load_student_data(predictor, samples, labels, student_path):
                 (np.array(((image + 1) / 2) * 255, dtype='uint8')),
                 cv2.COLOR_GRAY2RGB
                 )
-        predictor.set_image(image)
+
+        if run_sam:
+            predictor.set_image(image)
 
         g = os.path.join(points_path, f"{file}_green.npy")
         r = os.path.join(points_path, f"{file}_red.npy")
@@ -129,41 +143,50 @@ def load_student_data(predictor, samples, labels, student_path):
         n_red_in_inner_bb = is_red_in_inner_bb.sum()
         n_red_in_outer_bb = is_red_in_outer_bb.sum()
 
-        obb_masks, _, _ = predictor.predict(
-            point_coords=r,
-            point_labels=np.zeros(r.shape[0]),
-            box=np.array(outer_bb),
-            multimask_output=True,
-        )
+        if run_sam:
 
-        obb_iou = compute_iou(obb_masks[0], gt)
+            obb_masks, _, _ = predictor.predict(
+                point_coords=r,
+                point_labels=np.zeros(r.shape[0]),
+                box=np.array(outer_bb),
+                multimask_output=True,
+            )
+
+            obb_iou = compute_iou(obb_masks[0], gt)
 
 
-        g_outside_ibb = g[~is_in_inner_bb]
+            g_outside_ibb = g[~is_in_inner_bb]
 
-        point_coords = np.concatenate([g_outside_ibb, r])
-        point_labels = np.concatenate([np.zeros(g_outside_ibb.shape[0]), np.ones(r.shape[0])])
+            point_coords = np.concatenate([g_outside_ibb, r])
+            point_labels = np.concatenate([np.zeros(g_outside_ibb.shape[0]), np.ones(r.shape[0])])
 
-        ibb_masks, _, _ = predictor.predict(
-            point_coords=point_coords,
-            point_labels=point_labels,
-            box=np.array(inner_bb),
-            multimask_output=True,
-        )
+            ibb_masks, _, _ = predictor.predict(
+                point_coords=point_coords,
+                point_labels=point_labels,
+                box=np.array(inner_bb),
+                multimask_output=True,
+            )
 
-        ibb_iou = compute_iou(ibb_masks[0], gt)
+            ibb_iou = compute_iou(ibb_masks[0], gt)
 
-        recon_coords = np.concatenate([g[:2], r[:1]])
-        recon_labels = np.concatenate([np.ones(g[:2].shape[0]), np.zeros(r[:1].shape[0])])
+            recon_coords = np.concatenate([g[:2], r[:1]])
+            recon_labels = np.concatenate([np.ones(g[:2].shape[0]), np.zeros(r[:1].shape[0])])
 
-        recon_masks, _, _ = predictor.predict(
-            point_coords=recon_coords,
-            point_labels=recon_labels,
-            box=None,
-            multimask_output=True,
-        )
+            recon_masks, _, _ = predictor.predict(
+                point_coords=recon_coords,
+                point_labels=recon_labels,
+                box=None,
+                multimask_output=True,
+            )
 
-        recon_iou = compute_iou(recon_masks[0], gt)
+            recon_iou = compute_iou(recon_masks[0], gt)
+        else:
+            obb_iou = None
+            ibb_iou = None
+            recon_iou = None
+
+        convex_hull_iou = compute_iou_from_convex_hull(gch, gt)
+        print(convex_hull_iou)
 
         data.append(
             {
@@ -180,23 +203,28 @@ def load_student_data(predictor, samples, labels, student_path):
                 "obb_iou": obb_iou,
                 "ibb_iou": ibb_iou,
                 "original_iou": df.loc[file, "score"],
-                "recon_iou": recon_iou
+                "recon_iou": recon_iou,
+                "convex_hull_iou": convex_hull_iou,
             }
         )
 
-        if file % 25 == 0:
+        if file % 25 == 0 and run_sam:
             print(f"File: {file}, OBB IOU: {obb_iou}, "
                   f"IBB IOU: {ibb_iou}, "
                   f"Recon IOU: {recon_iou}, "
                   f"Original IOU: {df.loc[file, 'score']}")
 
     data = pd.DataFrame(data)
-    data.to_csv(os.path.join(student_path, f"{student_id}_processed.csv"), index=False)
+    if run_sam:
+        path = os.path.join(student_path, f"{student_id}_processed.csv")
+    else:
+        path = os.path.join(student_path, f"{student_id}_processed_no_sam.csv")
+    data.to_csv(path, index=False)
 
     return data
 
 
-def test_sam(class_name="Bus", ):
+def test_sam(class_name="Bus", run_sam=True):
 
 
     sam = sam_model_registry[MODEL_TYPE](checkpoint=SAM_CHECKPOINT).cuda()
@@ -215,7 +243,11 @@ def test_sam(class_name="Bus", ):
         dfs.append(df)
 
     df = pd.concat(dfs)
-    df.to_csv(os.path.join(PROMPT_PATH, class_name, "all_processed.csv"), index=False)
+
+    if run_sam:
+        df.to_csv(os.path.join(PROMPT_PATH, class_name, "all_processed.csv"), index=False)
+    else:
+        df.to_csv(os.path.join(PROMPT_PATH, class_name, "all_processed_no_sam.csv"), index=False)
 
 def test_all_classes():
     classes = glob.glob(os.path.join(GT_PATH, "*"))
@@ -233,12 +265,19 @@ def test_all_classes():
 
 
 import seaborn as sns
-def analyze_results(class_name):
+def analyze_results(class_name, with_sam=True):
     try:
-        df = pd.read_csv(os.path.join(PROMPT_PATH, class_name, "all_processed.csv"))
+        if with_sam:
+            df = pd.read_csv(os.path.join(PROMPT_PATH, class_name, "all_processed.csv"))
+        else:
+            df = pd.read_csv(os.path.join(PROMPT_PATH, class_name, "all_processed_no_sam.csv"))
     except:
         print(f"Could not read {class_name}")
         return None
+
+    if not with_sam:
+        return df
+
     print(df[['obb_iou', 'ibb_iou', 'recon_iou', 'original_iou']].describe())
 
     f, ax = plt.subplots(1, 1, figsize=(15, 5))
@@ -256,7 +295,7 @@ def analyze_results(class_name):
 
     return df
 
-def analyze_all_classes():
+def analyze_all_classes(with_sam=True):
 
     classes = glob.glob(os.path.join(GT_PATH, "*"))
     class_names = [os.path.basename(class_path) for class_path in classes]
@@ -265,7 +304,7 @@ def analyze_all_classes():
 
     for class_name in class_names:
         print(f"Analyzing {class_name}")
-        dfc = analyze_results(class_name)
+        dfc = analyze_results(class_name, with_sam=with_sam)
 
         if dfc is None:
             continue
@@ -275,13 +314,20 @@ def analyze_all_classes():
 
     df = pd.concat(df)
 
-    df.to_csv("./results/all_classes.csv", index=False)
+    if with_sam:
+        df.to_csv("./results/all_classes.csv", index=False)
+    else:
+        df.to_csv("./results/all_classes_no_sam.csv", index=False)
 
 def read_results(thresh=5):
+    # df = pd.read_csv("./results/all_classes.csv")
     df = pd.read_csv("./results/all_classes.csv")
+
+
     # print(df.groupby('class')[['obb_iou', 'ibb_iou', 'recon_iou', 'original_iou']].describe())
 
     n_classes = df['class'].nunique()
+    print(f"Number of classes: {n_classes}")
     f, axs = plt.subplots(3, 4, figsize=(30, 20))
 
     df = df[df.ng > thresh]
@@ -289,6 +335,8 @@ def read_results(thresh=5):
     print(df.columns)
 
     for i, class_name in enumerate(df['class'].unique()):
+        if i >= 12:
+            break
         ax = axs[i // 4, i % 4]
         dfc = df[df['class'] == class_name]
         edges = np.linspace(0, 1, 100)
@@ -296,6 +344,7 @@ def read_results(thresh=5):
         sns.kdeplot(dfc['obb_iou'], ax=ax, color='r', label='Outer BB')
         sns.kdeplot(dfc['recon_iou'], ax=ax, color='y', label='2G1R')
         sns.kdeplot(dfc['original_iou'], ax=ax, color='b', label='Original')
+        sns.kdeplot(dfc['convex_hull_iou'], ax=ax, color='g', label='Convex Hull')
 
         ax.set_title(class_name)
         ax.legend()
