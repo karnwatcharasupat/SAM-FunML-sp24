@@ -220,6 +220,8 @@ def test_sam(class_name="Bus", ):
 def test_all_classes():
     classes = glob.glob(os.path.join(GT_PATH, "*"))
 
+    print(classes)
+
     for class_path in classes:
         try:
             class_name = os.path.basename(class_path)
@@ -232,25 +234,76 @@ def test_all_classes():
 
 import seaborn as sns
 def analyze_results(class_name):
-
-    df = pd.read_csv(os.path.join(PROMPT_PATH, class_name, "all_processed.csv"))
-
-    print(df[['obb_iou', 'ibb_iou', 'original_iou']].describe())
+    try:
+        df = pd.read_csv(os.path.join(PROMPT_PATH, class_name, "all_processed.csv"))
+    except:
+        print(f"Could not read {class_name}")
+        return None
+    print(df[['obb_iou', 'ibb_iou', 'recon_iou', 'original_iou']].describe())
 
     f, ax = plt.subplots(1, 1, figsize=(15, 5))
 
     edges = np.linspace(0, 1, 100)
 
     sns.histplot(df['obb_iou'], ax=ax, color='r', label='Outer BB', stat='density', bins=edges)
-    sns.histplot(df['ibb_iou'], ax=ax, color='g', label='Inner BB', stat='density', bins=edges)
+    # sns.histplot(df['ibb_iou'], ax=ax, color='g', label='Inner BB', stat='density', bins=edges)
+    sns.histplot(df['recon_iou'], ax=ax, color='y', label='2G1R', stat='density', bins=edges)
     sns.histplot(df['original_iou'], ax=ax, color='b', label='Original', stat='density', bins=edges)
 
     ax.legend()
     plt.savefig(f"./results/{class_name}_iou.png")
-    plt.show()
+    plt.show(block=False)
 
+    return df
 
+def analyze_all_classes():
 
+    classes = glob.glob(os.path.join(GT_PATH, "*"))
+    class_names = [os.path.basename(class_path) for class_path in classes]
+
+    df = []
+
+    for class_name in class_names:
+        print(f"Analyzing {class_name}")
+        dfc = analyze_results(class_name)
+
+        if dfc is None:
+            continue
+
+        dfc['class'] = class_name
+        df.append(dfc)
+
+    df = pd.concat(df)
+
+    df.to_csv("./results/all_classes.csv", index=False)
+
+def read_results(thresh=5):
+    df = pd.read_csv("./results/all_classes.csv")
+    # print(df.groupby('class')[['obb_iou', 'ibb_iou', 'recon_iou', 'original_iou']].describe())
+
+    n_classes = df['class'].nunique()
+    f, axs = plt.subplots(3, 4, figsize=(30, 20))
+
+    df = df[df.ng > thresh]
+
+    print(df.columns)
+
+    for i, class_name in enumerate(df['class'].unique()):
+        ax = axs[i // 4, i % 4]
+        dfc = df[df['class'] == class_name]
+        edges = np.linspace(0, 1, 100)
+
+        sns.kdeplot(dfc['obb_iou'], ax=ax, color='r', label='Outer BB')
+        sns.kdeplot(dfc['recon_iou'], ax=ax, color='y', label='2G1R')
+        sns.kdeplot(dfc['original_iou'], ax=ax, color='b', label='Original')
+
+        ax.set_title(class_name)
+        ax.legend()
+
+    plt.suptitle(f"IOU Distribution Samples with > {thresh} Green Dots")
+
+    plt.savefig(f"./results/all_iou-{thresh}.png")
+    plt.show(block=True)
 
 
 if __name__ == '__main__':
