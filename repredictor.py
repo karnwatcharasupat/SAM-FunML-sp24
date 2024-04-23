@@ -268,6 +268,9 @@ for c in indices:
         lessfive = 0
         current_color = 'green'
         current_shape = 'dot'
+        is_caching = False
+        is_merging = False
+        old_mask = None
         # get_ipython().run_line_magic('matplotlib', 'qt')
         fig, ax = plt.subplots(1, 3, figsize=(15, 7))
 
@@ -304,6 +307,7 @@ for c in indices:
             global label
             global mask
             global lessfive
+            global old_mask
             if event.xdata is not None and event.ydata is not None:
 
                 x, y = int(event.xdata), int(event.ydata)
@@ -420,7 +424,7 @@ for c in indices:
                         point_labels=input_label,
                         multimask_output=True,
                         )
-                    elif current_shape=='box':
+                    elif current_shape == 'box':
                         box_points = np.array([box_x[0],box_y[0],box_x[1],box_y[1]])
 
                         masks, scores, logits = predictor.predict(
@@ -433,7 +437,20 @@ for c in indices:
                     # get_ipython().run_line_magic('matplotlib', 'inline')
                     ax[2].clear()
                     ax[2].imshow(image)
+
+                    if is_merging:
+                        if old_mask is not None:
+                            mask = mask | old_mask
+
+
                     show_mask(mask, ax[2])
+
+                    if is_caching:
+                        old_mask = mask
+                    else:
+                        old_mask = None
+
+
                     intersection = (mask & label).sum()
                     union = (mask | label).sum()
                     if intersection == 0:
@@ -544,6 +561,8 @@ for c in indices:
             global box_y
             global current_color
             global current_shape
+            global is_merging
+            global is_caching
             global count
             if event.key == 'g':
                 current_color = 'green'
@@ -559,7 +578,24 @@ for c in indices:
 
             elif event.key =='d':
                 current_shape = 'dot'
-                print("Switched to dot mode.")            
+                print("Switched to dot mode.")
+
+            elif event.key == 'm':
+                is_merging = True
+                print("Merging mode:", is_merging)
+
+            elif event.key == 'u':
+                is_merging = False
+                print("Merging mode:", is_merging)
+
+            elif event.key == 'c':
+                is_caching = True
+                print("Caching mode:", is_caching)
+
+            elif event.key == 'x':
+                is_caching = False
+                print("Caching mode:", is_caching)
+
 
             elif event.key == ' ':
                 for line in ax[0].lines:
